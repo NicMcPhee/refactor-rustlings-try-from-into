@@ -1,4 +1,4 @@
-# Refactoring: Rust and the Rustlings `try-from-into` exercise  🦀
+# Refactoring: Rust and the Rustlings `try-from-into` exercise  🦀 <!-- omit in toc -->
 
 In [episode 6](https://www.youtube.com/watch?v=c63p3TDRwtQ) of
 my _Unhindered by Coding_ livestream
@@ -13,6 +13,10 @@ sleep and reflection, I was able to work through it in a
 fairly straightforward fashion. In doing so, I realized that
 there were some nice refactoring opportunities in this little
 bit of code, and I thought I'd document that experience.
+
+- [What's the problem?](#whats-the-problem)
+- [Conversion: Its many risks and challenges](#conversion-its-many-risks-and-challenges)
+- [How does Rust handle this kind of conversion?](#how-does-rust-handle-this-kind-of-conversion)
 
 ## What's the problem?
 
