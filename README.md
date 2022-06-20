@@ -19,6 +19,9 @@ bit of code, and I thought I'd document that experience.
 - [How does Rust handle this kind of conversion?](#how-does-rust-handle-this-kind-of-conversion)
   - [`try_from()` and `Result`](#try_from-and-result)
   - [`match`ing three `Result`s](#matching-three-results)
+- [The actual Rustlings exercise](#the-actual-rustlings-exercise)
+  - [The `TryFrom` trait](#the-tryfrom-trait)
+  - [Handling a triple as input](#handling-a-triple-as-input)
 
 ## What's the problem?
 
@@ -235,3 +238,45 @@ And this works!
 It doesn't actually solve any of the posed problems, but it
 does successfully solve a closely related problem, so we're
 heading in a useful direction.
+
+## The actual Rustlings exercise
+
+Now that we've worked that out, let's move on to the actual
+Rustlings exercises. They use the `Color` and `IntoColorError`
+structs as defined above. Instead of independent an independent
+function like I wrote above, we'll need to implement the
+`TryFrom` trait for `Color` for each of the desired input
+forms:
+
+- A tuple of three color components
+- An array of three color components
+- A slice containing the color components
+
+If we do this, for example, then we can make calls like
+
+```rust
+    let color_result = Color::try_from((183, 65, 14));
+```
+
+to convert from a tuple of color components to a
+`Result<Color, IntoColorError>`, and from that we can extract
+`Color` structs when the conversions are all successful.
+
+### The `TryFrom` trait
+
+If we look at the stub for the first of the three implementations
+required in the exercise we can see how the `TryFrom` is being
+used.:
+
+```rust
+impl TryFrom<(i16, i16, i16)> for Color {
+    type Error = IntoColorError;
+    fn try_from(tuple: (i16, i16, i16)) -> Result<Color, IntoColorError> {
+        // ...
+    }
+}
+```
+
+
+
+### Handling a triple as input
