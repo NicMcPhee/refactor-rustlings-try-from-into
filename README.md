@@ -17,6 +17,8 @@ bit of code, and I thought I'd document that experience.
 - [What's the problem?](#whats-the-problem)
 - [Conversion: Its many risks and challenges](#conversion-its-many-risks-and-challenges)
 - [How does Rust handle this kind of conversion?](#how-does-rust-handle-this-kind-of-conversion)
+  - [`try_from()` and `Result`](#try_from-and-result)
+  - [`match`ing three `Result`s](#matching-three-results)
 
 ## What's the problem?
 
@@ -130,6 +132,8 @@ conversion_ with `as u8`, presumably recognizing the risk in
 doing so. This approach also makes it clear to future readers
 that a potentially risky conversion is happening.
 
+### `try_from()` and `Result`
+
 Even cooler, though, is Rust's `try_from()` which can be used
 to _attempt_ conversions, but gracefully handle issues if/when
 they arise. The `try_from()` function returns a Rust `Result`
@@ -169,8 +173,65 @@ doing the conversion. In our example above, we use `match` to see
 which of those cases occurred, and in this instance there was an
 error because `300` doesn't fit in a `u8`.
 
-The `match` syntax used above is in some ways the most
-straightforward way of dealing with a `Result` type, but can
-lead to awkward nesting. There are other constructs like
-`if let` and `?` that can simplify handling errors, and we'll
-see some of those below.
+### `match`ing three `Result`s
+
+Given this, a plausible start to our simplified version would
+be something like:
+
+```rust
+fn try_from(r: i16, g: i16, b: i16) -> Result<Color, IntoColorError> {
+    let red = u8::try_from(r);
+    let green = u8::try_from(g);
+    let blue = u8::try_from(b);
+    // ...
+}
+```
+
+This converts each of the input values from `i16` to `u8`, giving
+us three `Result` values, one for each color component.
+
+We've had to change the return type of `try_from()` to reflect
+the possibility that one or more of the `u8::try_from()` calls
+could return an error. Here we're using the `IntoColorError` type
+provided in the starter code, which has an `IntConversion` variant
+that we can use to indicate when we weren't able to convert from
+a `i16` to a `u8`.
+
+```rust
+enum IntoColorError {
+    // Integer conversion error
+    IntConversion,
+    // ...
+}
+```
+
+The problem, then, is how to proceed after these three `try_from()`
+calls. There are 8 possible combinations of `Ok()` and `Err()`
+outcomes from these three calls (two possibilities for each of the
+three calls). If they're all `Ok()` then we want to return an `Ok()`
+as well, but if _any_ are `Err()` then we want to return an `Err()`.
+
+Rather than list out all 8 cases in a `match` block, we can, we
+can check for all `OK()` (putting all three results in a tuple
+so we can treat them as a single expression), and then use the
+"default" option `_` to match any other combination of `Ok()`s
+and `Err()`s.
+
+```rust
+fn try_from(r: i16, g: i16, b: i16) -> Result<Color, IntoColorError> {
+    let red = u8::try_from(r);
+    let green = u8::try_from(g);
+    let blue = u8::try_from(b);
+    
+    match (red, green, blue) {
+        (Ok(red), Ok(green), Ok(blue)) => Ok(Color { red, green, blue }),
+        _ => Err(IntoColorError::IntConversion),
+    }
+}
+```
+
+And this works!
+
+It doesn't actually solve any of the posed problems, but it
+does successfully solve a closely related problem, so we're
+heading in a useful direction.
