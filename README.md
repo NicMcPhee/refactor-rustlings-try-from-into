@@ -28,10 +28,11 @@ bit of code, and I thought I'd document that experience.
   - [Handle tuples using arrays](#handle-tuples-using-arrays)
   - [Handle slices using arrays](#handle-slices-using-arrays)
   - [Mapping over the array elements](#mapping-over-the-array-elements)
+- [Wrap-up](#wrap-up)
 
 ## What's the problem?
 
-[The Rustlings `try-from-into` exericse](https://github.com/rust-lang/rustlings/blob/main/exercises/conversions/try_from_into.rs)
+[The Rustlings `try-from-into` exercise](https://github.com/rust-lang/rustlings/blob/main/exercises/conversions/try_from_into.rs)
 is essentially three different versions of constructing an
 RGB color struct from three integer values for red, green, and
 blue. The `Color` struct is a collection of three (named) `u8`
@@ -60,8 +61,8 @@ values, such as:
 > shortly.
 
 The three functions differ in how they receive the three `i16`
-values. One takes them as a *tuple*, one takes them as an *array*,
-and one takes them as a *slice* (more on that later). To simplify
+values. One takes them as a _tuple_, one takes them as an _array_,
+and one takes them as a _slice_ (more on that later). To simplify
 the initial discussion, though, I'll focus on a version similar
 to the stub above, where the three color components are passed in
 as separate arguments. Once we've finished beating the basics of
@@ -370,7 +371,10 @@ impl TryFrom<[i16; 3]> for Color {
 }
 ```
 
-The remarkable similarity  between these two implementations strongly
+The bodies of these two definitions are in fact character-for-character
+identical, with the only difference being in the pattern matching used
+to extract the arguments `red`, `green`, and `blue`.
+The remarkable similarity  between these two implementations _strongly_
 suggests a refactoring opportunity, but we'll come to that after we've
 implemented the third part of the exercise.
 
@@ -415,7 +419,10 @@ return that error in cases where the slice doesn't have the right length
 (i.e., 3).
 
 Note that, depending on how we write it, our code might not actually fail
-if our input slice has too many elements. The tests provided with the
+if our input slice has too many elements. You could imagine a specification
+where it's fine if the input slice has too many elements; we just use the
+first three to construct the `Color` and ignore the rest.
+The tests provided with the
 exercise, however, suggest that we are expected to return a `BadLen` error
 in that circumstance as well.
 
@@ -424,9 +431,9 @@ and converting values, returning an `Err(IntoColorError::BadLen)` if the
 the length isn't three:
 
 ```rust
-        if slice.len() != 3 {
-            return Err(IntoColorError::BadLen);
-        }
+    if slice.len() != 3 {
+        return Err(IntoColorError::BadLen);
+    }
 ```
 
 Now we can combine that with our earlier observations and solutions
@@ -458,7 +465,7 @@ impl TryFrom<&[i16]> for Color {
 
 Now the length check ensures that all the slice accesses (where we define
 `red`, `green`, and `blue`) will be legal, and from there forward it's
-exactly the same as the previous two implementations (causing the
+_exactly_ the same as the previous two implementations (causing the
 refactoring opportunity warning bell to go "Ding , Ding, Ding!" _very_ loudly).
 So let's do some refactoring!
 
@@ -530,6 +537,13 @@ the array versions almost exactly capture the shared logic, differing only
 in the pattern matching on the argument. So either of them could nicely form
 the basis of our refactoring.
 
+> Note that instead of building everything on top of one of the existing
+> solutions, we could quite reasonably implement a function on `Color`
+> that takes the three `i16` components as separate arguments, and then
+> call that from all three of these `TryFrom` implementations. Since the
+> array version provides such a clean solution, however, I'm happy to just
+> use it instead of creating a new function.
+
 Looking ahead a little, I'm going to define the first and third versions
 (tuple and slice) in terms of the second (array) version. The main reason
 for that is that we can map across arrays, but we can't map across tuples.
@@ -540,7 +554,7 @@ how to type the function we're mapping across the tuple.
 ### Handle tuples using arrays
 
 It's pretty easy to rewrite the tuple version so that it uses the array
-version. All we need to do is rewirte the input tuple to a array of
+version. All we need to do is rewrite the input tuple to a array of
 three `i16`s and then call the array version:
 
 ```rust
@@ -556,7 +570,7 @@ And voilà! We've replaced seven lines of code with just a single line. :tada:
 
 ### Handle slices using arrays
 
-A simple way to refactor the slice version is to keep the length test and
+A simple way to refactor the slice version is to keep the length test,
 extract the `red`, `green`, and `blue` components, and then call the
 array version:
 
@@ -592,7 +606,7 @@ vector doesn't have the right number of elements, which is why the
 `try_from()` call returns a `Result` type. If we do the length check
 first, then we'll _know_ that the length of the vector `slice` is 3, so we
 can just call `.unwrap()` to extract the value in the `Ok()` variant.
-that `unwrap()` call will panic if the slice has the wrong length, but
+That `unwrap()` call will panic if the slice has the wrong length, but
 we're safe because of the length check.
 
 This means we can further simplify this version:
@@ -610,12 +624,12 @@ impl TryFrom<&[i16]> for Color {
 }
 ```
 
-Since the `try_from()` we're defining already returns a `Result`, we
+Since the `Color::try_from()` we're defining already returns a `Result`, we
 don't _have_ to avoid returning an error. We also don't even have to
 explicitly _check_ for the error. The Rust `?` construct allows us
-to extract the value from a `Result` type, immediately returning
-an error if that's what the `Result`. So we could _almost_ replace
-this:
+to extract the `Ok()` value from a `Result` type, while immediately
+returning an error if instead that's the variant of the `Result`.
+So we could _almost_ replace this:
 
 ```rust
         if slice.len() != 3 {
@@ -630,7 +644,13 @@ with
         let a = <[i16; 3]>::try_from(slice)?;
 ```
 
-The problem is that his gives a compiler error:
+Here if the `<[16; 3]>::try_from(slice)` call returns an `Ok()` value,
+that value will be extracted by the `?` operator and assigned to `a`
+and we can happily move on. If `<[16; 3]>::try_from(slice)` returns
+an `Err()` variant, however, then the `?` operator will immediately
+return that `Err()` and none of the subsequent code will be run.
+
+This is _almost_ perfect, but we end up with a compiler error:
 
 ```text
 the trait `From<TryFromSliceError>` is not implemented for `IntoColorError`
@@ -652,14 +672,17 @@ this case, though, is to use the `map_err` function to convert the
   let a = <[i16; 3]>::try_from(slice).map_err(|_| IntoColorError::BadLen)?;
 ```
 
-Now if the `<[i16; 3]>::try_from(slice)` call returns an `Ok()` variant
-it be left alone by the `map_err()` call and the value will be extracted
-by the `?` operator. If the `<[i16; 3]>::try_from(slice)` call returns
-an `Err()` variant, the error will be mapped by `map_err()` to a
+Now if the `<[i16; 3]>::try_from(slice)` call returns an `Ok()` variant,
+that will be left alone by the `map_err()` call, and the value will
+be extracted by the `?` operator. If the `<[i16; 3]>::try_from(slice)`
+call returns an `Err()` variant, the error will be mapped by `map_err()` to a
 `IntoColorError` and the `?` operator will immediately return that error.
+Note that the use of `_` as the argument to the `map_err()` closure
+says we don't care _what_ error type was returned by
+`<[i16; 3]>::try_from(slice)`; we'll convert _any_ error type that
+it returns into `IntoColorError::BadLen`.
 
-This allows us to simplify things even further, leading to this
-definition:
+This allows us to simplify things even further:
 
 ```rust
 impl TryFrom<&[i16]> for Color {
@@ -717,22 +740,78 @@ This is pretty nice, but I still find the repetition in this part of
 the array implementation annoying:
 
 ```rust
-        let red_result = u8::try_from(red);
-        let green_result = u8::try_from(green);
-        let blue_result = u8::try_from(blue);
+    let red_result = u8::try_from(red);
+    let green_result = u8::try_from(green);
+    let blue_result = u8::try_from(blue);
 ```
-
 
 It would be nice to use `map` to apply `u8::try_from()` to each of the
 color elements instead of having to make three separate calls. This is
-_almost_ pretty simple, with something like this nearly doing what we
-want:
+actually pretty simple:
 
 ```rust
     fn try_from(color_elements: [i16; 3]) -> Result<Color, IntoColorError> {
-        color_elements.iter().map(|c| u8::try_from(c)).collect();
-        // ...
+        let result = color_elements.map(|v| u8::try_from(v));
+
+        match result {
+            [Ok(red), Ok(green), Ok(blue)] => Ok(Color { red, green, blue }),
+            _ => Err(IntoColorError::IntConversion),
+        }
+    }
 ```
 
-The `iter()` call generates an iterator over the elements of the array, and
-the `collect()` at the other end collects those values into a collection.
+Note that if there are any `Err()` values in `result` they'll have the
+"wrong" type (they won't be `IntoColorError` values), but since we never
+explicitly `match` against those (we just use `_` to catch all the `Err()`
+values), we just need to make sure that we return the right kind of type
+(`Err(IntoColorError::IntConversion`) in the default case. If we needed to
+extract the specific errors generated by `u8::try_from(v)`, we'd either
+need more complex `match`ing or need to use something like `map_err()`
+to process those errors.
+
+## Wrap-up
+
+Here's our final version, which is about half the size of the initial
+working version!
+
+```rust
+// Tuple implementation
+impl TryFrom<(i16, i16, i16)> for Color {
+    type Error = IntoColorError;
+    fn try_from((red, green, blue): (i16, i16, i16)) -> Result<Color, IntoColorError> {
+        Color::try_from([red, green, blue])
+    }
+}
+
+// Array implementation
+impl TryFrom<[i16; 3]> for Color {
+    type Error = IntoColorError;
+    fn try_from(color_elements: [i16; 3]) -> Result<Color, IntoColorError> {
+        let result = color_elements.map(|v| u8::try_from(v));
+
+        match result {
+            [Ok(red), Ok(green), Ok(blue)] => Ok(Color { red, green, blue }),
+            _ => Err(IntoColorError::IntConversion),
+        }
+    }
+}
+
+// Slice implementation
+impl TryFrom<&[i16]> for Color {
+    type Error = IntoColorError;
+    fn try_from(slice: &[i16]) -> Result<Color, IntoColorError> {
+        let a = <[i16; 3]>::try_from(slice).map_err(|_| IntoColorError::BadLen)?;
+        Color::try_from(a)
+    }
+}
+```
+
+This is pretty nice, and I think we've cooked this down about as far I
+can see it going. (Which pretty much guarantees that someone will share
+an even tighter alternative. :stuck_out_tongue_winking_eye:)
+
+Thanks for reading this far! Feel free to share comments and suggestions
+either on
+[GitHub](https://github.com/NicMcPhee/refactor-rustlings-try-from-into)
+or [Twitter](https://twitter.com/NicMcPhee)
+(I'm `@NicMcPhee` in both places).
