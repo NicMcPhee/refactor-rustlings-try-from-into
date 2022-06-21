@@ -3,7 +3,7 @@
 // Basically, this is the same as From. The main difference is that this should return a Result type
 // instead of the target type itself.
 // You can read more about it at https://doc.rust-lang.org/std/convert/trait.TryFrom.html
-use std::convert::{TryFrom, TryInto};
+use std::{convert::{TryFrom, TryInto}};
 
 #[derive(Debug, PartialEq)]
 struct Color {
@@ -32,28 +32,77 @@ enum IntoColorError {
 // but the slice implementation needs to check the slice length!
 // Also note that correct RGB color values must be integers in the 0..=255 range.
 
+fn try_from(r: i16, g: i16, b: i16) -> Result<Color, IntoColorError> {
+    let red_result = u8::try_from(r);
+    let green_result = u8::try_from(g);
+    let blue_result = u8::try_from(b);
+    
+    match (red_result, green_result, blue_result) {
+        (Ok(red), Ok(green), Ok(blue)) => Ok(Color { red, green, blue }),
+        _ => Err(IntoColorError::IntConversion),
+    }
+}
+
 // Tuple implementation
 impl TryFrom<(i16, i16, i16)> for Color {
     type Error = IntoColorError;
-    fn try_from(tuple: (i16, i16, i16)) -> Result<Self, Self::Error> {
+    fn try_from((red, green, blue): (i16, i16, i16)) -> Result<Color, IntoColorError> { 
+        let red_result = u8::try_from(red);
+        let green_result = u8::try_from(green);
+        let blue_result = u8::try_from(blue);
+        
+        match (red_result, green_result, blue_result) {
+            (Ok(red), Ok(green), Ok(blue)) => Ok(Color { red, green, blue }),
+            _ => Err(IntoColorError::IntConversion),
+        }
     }
 }
 
 // Array implementation
 impl TryFrom<[i16; 3]> for Color {
     type Error = IntoColorError;
-    fn try_from(arr: [i16; 3]) -> Result<Self, Self::Error> {
+    fn try_from([red, green, blue]: [i16; 3]) -> Result<Color, IntoColorError> {
+        let red_result = u8::try_from(red);
+        let green_result = u8::try_from(green);
+        let blue_result = u8::try_from(blue);
+        
+        match (red_result, green_result, blue_result) {
+            (Ok(red), Ok(green), Ok(blue)) => Ok(Color { red, green, blue }),
+            _ => Err(IntoColorError::IntConversion),
+        }
     }
 }
 
 // Slice implementation
 impl TryFrom<&[i16]> for Color {
     type Error = IntoColorError;
-    fn try_from(slice: &[i16]) -> Result<Self, Self::Error> {
+    fn try_from(slice: &[i16]) -> Result<Color, IntoColorError> {
+        if slice.len() != 3 {
+            return Err(IntoColorError::BadLen);
+        }
+
+        let red = slice[0];
+        let green = slice[1];
+        let blue = slice[2];
+
+        let red_result = u8::try_from(red);
+        let green_result = u8::try_from(green);
+        let blue_result = u8::try_from(blue);
+        
+        match (red_result, green_result, blue_result) {
+            (Ok(red), Ok(green), Ok(blue)) => Ok(Color { red, green, blue }),
+            _ => Err(IntoColorError::IntConversion),
+        }
     }
 }
 
 fn main() {
+    // Use my `from` function
+    let c1 = try_from(183, 65, 14);
+    println!("{:?}", c1);
+    let c2 = try_from(300, 65, 14);
+    println!("{:?}", c2);
+
     // Use the `from` function
     let c1 = Color::try_from((183, 65, 14));
     println!("{:?}", c1);
