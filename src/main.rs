@@ -47,27 +47,18 @@ fn try_from(r: i16, g: i16, b: i16) -> Result<Color, IntoColorError> {
 impl TryFrom<(i16, i16, i16)> for Color {
     type Error = IntoColorError;
     fn try_from((red, green, blue): (i16, i16, i16)) -> Result<Color, IntoColorError> { 
-        let red_result = u8::try_from(red);
-        let green_result = u8::try_from(green);
-        let blue_result = u8::try_from(blue);
-        
-        match (red_result, green_result, blue_result) {
-            (Ok(red), Ok(green), Ok(blue)) => Ok(Color { red, green, blue }),
-            _ => Err(IntoColorError::IntConversion),
-        }
+        Color::try_from([red, green, blue])
     }
 }
 
 // Array implementation
 impl TryFrom<[i16; 3]> for Color {
     type Error = IntoColorError;
-    fn try_from([red, green, blue]: [i16; 3]) -> Result<Color, IntoColorError> {
-        let red_result = u8::try_from(red);
-        let green_result = u8::try_from(green);
-        let blue_result = u8::try_from(blue);
-        
-        match (red_result, green_result, blue_result) {
-            (Ok(red), Ok(green), Ok(blue)) => Ok(Color { red, green, blue }),
+    fn try_from(color_elements: [i16; 3]) -> Result<Color, IntoColorError> {
+        let result = color_elements.map(|v| u8::try_from(v));
+
+        match result {
+            [Ok(red), Ok(green), Ok(blue)] => Ok(Color { red, green, blue }),
             _ => Err(IntoColorError::IntConversion),
         }
     }
@@ -77,22 +68,8 @@ impl TryFrom<[i16; 3]> for Color {
 impl TryFrom<&[i16]> for Color {
     type Error = IntoColorError;
     fn try_from(slice: &[i16]) -> Result<Color, IntoColorError> {
-        if slice.len() != 3 {
-            return Err(IntoColorError::BadLen);
-        }
-
-        let red = slice[0];
-        let green = slice[1];
-        let blue = slice[2];
-
-        let red_result = u8::try_from(red);
-        let green_result = u8::try_from(green);
-        let blue_result = u8::try_from(blue);
-        
-        match (red_result, green_result, blue_result) {
-            (Ok(red), Ok(green), Ok(blue)) => Ok(Color { red, green, blue }),
-            _ => Err(IntoColorError::IntConversion),
-        }
+        let a = <[i16; 3]>::try_from(slice).map_err(|_| IntoColorError::BadLen)?;
+        Color::try_from(a)
     }
 }
 
@@ -118,6 +95,11 @@ fn main() {
     // or take slice within round brackets and use TryInto
     let c4: Result<Color, _> = (&v[..]).try_into();
     println!("{:?}", c4);
+
+    let v: Vec<i16> = vec![183, 65, 14];
+    println!("Converting slice {:?}.", v);
+    let a: [i16; 3] = <[i16; 3]>::try_from(v).unwrap();
+    println!("Converting yields array {:?}.", a);
 }
 
 #[cfg(test)]
