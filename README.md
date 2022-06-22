@@ -29,6 +29,8 @@ bit of code, and I thought I'd document that experience.
   - [Handle slices using arrays](#handle-slices-using-arrays)
   - [Mapping over the array elements](#mapping-over-the-array-elements)
 - [Wrap-up](#wrap-up)
+- [Performance implications](#performance-implications)
+- [Thanks](#thanks)
 
 ## What's the problem?
 
@@ -809,6 +811,45 @@ impl TryFrom<&[i16]> for Color {
 This is pretty nice, and I think we've cooked this down about as far I
 can see it going. (Which pretty much guarantees that someone will share
 an even tighter alternative. :stuck_out_tongue_winking_eye:)
+
+## Performance implications
+
+While this definitely makes the code a lot prettier (and easier to
+understand, maintain, etc.), there is the potential that this has
+made the code less efficient, mostly through additional function
+calls and type transformations.
+
+Just to see what impact the refactorings had on the performance,
+I used [the Criterion crate](https://bheisler.github.io/criterion.rs/book/index.html)
+to time all three `try_from` methods, both before and after refactoring.
+Below is the timing plot for all six methods:
+
+![](images/violin_white_background.svg)
+
+The six methods are along the vertical axis, and the times are
+along the horizontal axis, with larger values being slower.
+The top three are the original implementations before the
+refactoring, and they are all definitely faster than the bottom
+three, which are the refactored versions.
+
+Whether these time differences _matter_ would depend entirely
+on the circumstances. In absolute values, the differences are
+tiny: an average of 2 to 2.5 _nanoseconds_. So if you were only
+calling these conversions a few times, there the timing
+differences don't matter at all, and you should choose based
+on other factors like readability.
+
+If for some reason you were converting tens or hundreds of
+_millions_ of `Color` structs, though, then this very small
+difference could start to add up. This is why one does
+performance profiling on large systems to see where the
+bottlenecks are. If they turn out to be in `Color::try_from()`,
+then you make sure you write that to be as fast as possible.
+Odds are, though, that this isn't likely to be your
+bottleneck, and if it is then there are probably bigger
+issues at stake than this refactoring.
+
+## Thanks
 
 Thanks for reading this far! Feel free to share comments and suggestions
 either on
