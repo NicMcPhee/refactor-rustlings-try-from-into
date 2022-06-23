@@ -3,7 +3,9 @@
 In [episode 6](https://www.youtube.com/watch?v=c63p3TDRwtQ) of
 my _Unhindered by Coding_ livestream
 ([Twitch](https://twitch.tv/NicMcPhee), [YouTube archive](https://www.youtube.com/channel/UC5tGIQti2UYfCSI9aUeSZFQ)),
-I flailed pretty hard on the `try-from-into` exercise, spending
+I flailed pretty hard on the `try-from-into`
+[Rustlings](https://github.com/rust-lang/rustlings)
+exercise, spending
 over half an hour and still not getting the thing to work.
 
 Coming back to it on my own later, I think the big problem was
@@ -13,6 +15,31 @@ sleep and reflection, I was able to work through it in a
 fairly straightforward fashion. In doing so, I realized that
 there were some nice refactoring opportunities in this little
 bit of code, and I thought I'd document that experience.
+
+We'll focus here on the classic
+[red-green-refactor cycle](https://medium.com/@melvinzehl/red-green-refactor-dd1d0abd3e16). You start with tests that fail
+(provided in this case by Rustlings), which is the _red_ state.
+You then do the simplest possible things to get the tests to pass,
+bringing us to the _green_ state. After you're green, then you
+_refactor_, working to improve the code while using the tests
+as a backstop to help ensure you don't break the code while
+you're trying to improve it.
+
+This write-up doesn't explain every detail of Rust that is
+being used, but I think that most of it will make sense to
+folks with some programming experience.
+[The Rust Book](https://doc.rust-lang.org/book/)
+is an excellent intro to the language if you want to learn
+more. If you prefer videos, then
+[the Let's Get Rusty YouTube
+channel](https://www.youtube.com/playlist?list=PLai5B987bZ9CoVR-QEIN9foz4QCJ0H2Y8)
+went through the whole book, and
+[Jon Gjengset'a Crust of Rust series of videos](https://www.youtube.com/playlist?list=PLqbS7AVVErFiWDOAVrPt7aYmnuuOLYvOa)
+provides a ton of great depth and detail. Finally, if you're
+looking for a set of exercises, I was generally very impressed
+by [the Rustlings exercises](https://github.com/rust-lang/rustlings)
+and learned a lot about the language
+by going through them all.
 
 - [What's the problem?](#whats-the-problem)
 - [Conversion: Its many risks and challenges](#conversion-its-many-risks-and-challenges)
@@ -35,7 +62,7 @@ bit of code, and I thought I'd document that experience.
 ## What's the problem?
 
 [The Rustlings `try-from-into` exercise](https://github.com/rust-lang/rustlings/blob/main/exercises/conversions/try_from_into.rs)
-is essentially three different versions of constructing an
+has us implement three different versions of constructing an
 RGB color struct from three integer values for red, green, and
 blue. The `Color` struct is a collection of three (named) `u8`
 (unsigned 8-bit) values:
@@ -48,7 +75,8 @@ struct Color {
 }
 ```
 
-To complete the exercise, we need to write three functions
+To complete the exercise, we need to write three `try_from()`
+functions
 that each construct a `Color` given three `i16` (signed 16-bit)
 values, such as:
 
@@ -64,18 +92,18 @@ values, such as:
 
 The three functions differ in how they receive the three `i16`
 values. One takes them as a _tuple_, one takes them as an _array_,
-and one takes them as a _slice_ (more on that later). To simplify
+and one takes them as a _slice_. To simplify
 the initial discussion, though, I'll focus on a version similar
 to the stub above, where the three color components are passed in
-as separate arguments. Once we've finished beating the basics of
+as separate arguments. Once we've finished going over the basics of
 `i16` to `u8` conversion to death, we'll switch to the versions
 required by the actual exercise.
 
 ## Conversion: Its many risks and challenges
 
 The key issue is that the integer values we're given
-are _signed_ 16 bit values (`i16` in Rust), but the values
-in the `Color` structure are _unsigned_ 8 bit values
+are _signed_ 16-bit values (`i16` in Rust), but the values
+in the `Color` structure are _unsigned_ 8-bit values
 (`u8` in Rust).
 
 A simple "solution", for example, would be something
@@ -112,8 +140,8 @@ certainly not what we want. For example, converting -1 (as
 `i16`) to `u8` will result in 255, and converting 300 (as
 `i16`) to `u8` will result in 44.
 
-> A similar problem was a key part of what led to the failure
-> of the maiden launch of the Ariane 5 rocket, which cost
+> A similar problem was a key part of what led to the explosive failure
+> of the maiden launch of the Ariane 5 rocket, a loss which cost
 > more than US$370 million. There were several data
 > conversions from 64-bit floating point numbers to 16-bit
 > integer values, and "the programmers had protected only
@@ -146,9 +174,14 @@ that a potentially risky conversion is happening.
 
 ### `try_from()` and `Result`
 
-Even cooler, though, is Rust's `try_from()` which can be used
+Even cooler, though, is Rust's `TryFrom` trait, which provides a
+`try_from()` function which can be used
 to _attempt_ conversions, but gracefully handle issues if/when
-they arise. The `try_from()` function returns a Rust `Result`
+they arise. A `try_from()` call looks like `A::try_from(v)`,
+where `A` is the _type_ we're trying to convert _to_, and
+`v` is the _value_ we're trying to convert _from_.
+
+The `try_from()` function returns a Rust `Result`
 type, which is an enumeration with two variants: `Ok` and `Err`.
 We use `Ok` to wrap (hold) the value of a successful conversion,
 or use `Err` to wrap (hold) an error value indicating what
@@ -223,10 +256,12 @@ outcomes from these three calls (two possibilities for each of the
 three calls). If they're all `Ok()` then we want to return an `Ok()`
 as well, but if _any_ are `Err()` then we want to return an `Err()`.
 
-Rather than list out all 8 cases in a `match` block, we can, we
-can check for all `OK()` (putting all three results in a tuple
-so we can treat them as a single expression), and then use the
-"default" option `_` to match any other combination of `Ok()`s
+Rather than list out all 8 cases in a `match` block, we
+can put all three results in a tuple so we can treat them as
+a single expression, and then organize things into just
+two cases. In the first, we'll check to see if all three
+`Result`s are `Ok()`. We'll then use the
+default option `_` to match any other combination of `Ok()`s
 and `Err()`s.
 
 ```rust
@@ -274,7 +309,7 @@ forms:
 - An array of three color components
 - A slice containing the color components
 
-If we do this, for example, then we can make calls like
+As an example, this will allow us to make calls like
 
 ```rust
     let color_result = Color::try_from((183, 65, 14));
@@ -307,7 +342,7 @@ when performing the conversion.
 ### Handling a triple as input
 
 Implementing the first part of the exercise is almost exactly the same
-as the implementation of the simplified version up above, namely we
+as the implementation of the simplified function up above, namely we
 convert each color component to a `u8` and use a `match` clause to
 check for errors:
 
@@ -329,7 +364,7 @@ impl TryFrom<(i16, i16, i16)> for Color {
 
 This works fine and passes the relevant tests, but I'm not a fan of the
 `tuple.0` notation since it's awfully easy to write `tuple.2` instead of
-`tuple.3` and not notice the mistake, either at the time, in a code review,
+`tuple.1` and not notice the mistake, either at the time, in a code review,
 or debugging after the fact.
 
 We can take advantage of Rust's pattern matching in the function argument
@@ -352,10 +387,13 @@ impl TryFrom<(i16, i16, i16)> for Color {
 }
 ```
 
+Not a big change, but definitely an improvement in readability
+and maintainability, IMO.
+
 ### Handling an array as input
 
-The second of the three implementations is almost identical as the
-previous version:
+The second of the three implementations is almost identical to
+the first one:
 
 ```rust
 impl TryFrom<[i16; 3]> for Color {
@@ -536,15 +574,9 @@ and the subsequent `match` statement.
 
 The slice version has a lot of slice-specific code, but both the tuple and
 the array versions almost exactly capture the shared logic, differing only
-in the pattern matching on the argument. So either of them could nicely form
+in the pattern matching on the function's argument.
+So either of them could nicely form
 the basis of our refactoring.
-
-> Note that instead of building everything on top of one of the existing
-> solutions, we could quite reasonably implement a function on `Color`
-> that takes the three `i16` components as separate arguments, and then
-> call that from all three of these `TryFrom` implementations. Since the
-> array version provides such a clean solution, however, I'm happy to just
-> use it instead of creating a new function.
 
 Looking ahead a little, I'm going to define the first and third versions
 (tuple and slice) in terms of the second (array) version. The main reason
@@ -552,6 +584,14 @@ for that is that we can map across arrays, but we can't map across tuples.
 Tuples can contain elements of different types, which makes mapping impossible
 (at least in a strongly typed language like Rust) since we wouldn't know
 how to type the function we're mapping across the tuple.
+
+> Note that instead of building everything on top of one of the existing
+> solutions, we could quite reasonably implement a function on `Color`
+> that takes the three `i16` components as separate arguments, and then
+> call that from all three of these `TryFrom` implementations. Since the
+> array version provides such a clean solution _and_ allows mapping,
+> I'm happy to just
+> use it instead of creating a new function.
 
 ### Handle tuples using arrays
 
@@ -602,8 +642,8 @@ that converts slices to arrays:
     let a = <[i16; 3]>::try_from(slice).unwrap();
 ```
 
-Here the `<[i16; 3]>::try_from(slice)` call attempts to convert the
-slice `v` into an array of three `i16`s. This can fail if the given
+Here the `<[i16; 3]>::try_from(slice)` call attempts to convert
+`slice` into an array of three `i16`s. This can fail if the given
 vector doesn't have the right number of elements, which is why the
 `try_from()` call returns a `Result` type. If we do the length check
 first, then we'll _know_ that the length of the vector `slice` is 3, so we
@@ -630,8 +670,8 @@ Since the `Color::try_from()` we're defining already returns a `Result`, we
 don't _have_ to avoid returning an error. We also don't even have to
 explicitly _check_ for the error. The Rust `?` construct allows us
 to extract the `Ok()` value from a `Result` type, while immediately
-returning an error if instead that's the variant of the `Result`.
-So we could _almost_ replace this:
+returning an error if the `Result` is an `Err()` variant instead of an
+`Ok()`. So we could _almost_ replace this:
 
 ```rust
         if slice.len() != 3 {
@@ -696,7 +736,7 @@ impl TryFrom<&[i16]> for Color {
 }
 ```
 
-And now we have this down to two lines of code as well!
+And now we have this down to two lines of code! :tada:
 
 At this point we've simplified our three definitions down to
 
@@ -824,24 +864,27 @@ I used [the Criterion crate](https://bheisler.github.io/criterion.rs/book/index.
 to time all three `try_from` methods, both before and after refactoring.
 Below is the timing plot for all six methods:
 
-![](images/violin_white_background.svg)
+![Violin plots showing the execution times for the six different functions.](images/violin_white_background.svg)
 
 The six methods are along the vertical axis, and the times are
 along the horizontal axis, with larger values being slower.
 The top three are the original implementations before the
-refactoring, and they are all definitely faster than the bottom
-three, which are the refactored versions.
+refactoring, and they are all definitely faster (between 2 and 2.5ns) than the bottom
+three, which are the refactored versions (between 4.4 and 4.7ns).
+It's worth noting (& not surprising) that the slice versions,
+both before and after refactoring, are generally slower than either the tuple or array versions.
 
 Whether these time differences _matter_ would depend entirely
 on the circumstances. In absolute values, the differences are
 tiny: an average of 2 to 2.5 _nanoseconds_. So if you were only
 calling these conversions a few times, then the timing
 differences don't matter at all, and you should choose based
-on other factors like readability.
+on factors like readability.
 
 If for some reason you were converting tens or hundreds of
-_millions_ of `Color` structs, though, then this very small
-difference could start to add up. This is why one does
+_millions_ of `Color` structs, though, then the proportional
+difference (about a factor of 2), would really start to add up.
+This is why one does
 performance profiling on large systems to see where the
 bottlenecks are. If they turn out to be in `Color::try_from()`,
 then you make sure you write that to be as fast as possible.
