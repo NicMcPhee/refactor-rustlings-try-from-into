@@ -19,13 +19,13 @@ pub enum IntoColorError {
 impl TryFrom<(i16, i16, i16)> for Color {
     type Error = IntoColorError;
     #[inline]
-    fn try_from((red, green, blue): (i16, i16, i16)) -> Result<Color, IntoColorError> { 
+    fn try_from((red, green, blue): (i16, i16, i16)) -> Result<Self, IntoColorError> { 
         let red_result = u8::try_from(red);
         let green_result = u8::try_from(green);
         let blue_result = u8::try_from(blue);
         
         match (red_result, green_result, blue_result) {
-            (Ok(red), Ok(green), Ok(blue)) => Ok(Color { red, green, blue }),
+            (Ok(red), Ok(green), Ok(blue)) => Ok(Self { red, green, blue }),
             _ => Err(IntoColorError::IntConversion),
         }
     }
@@ -35,13 +35,13 @@ impl TryFrom<(i16, i16, i16)> for Color {
 impl TryFrom<[i16; 3]> for Color {
     type Error = IntoColorError;
     #[inline]
-    fn try_from([red, green, blue]: [i16; 3]) -> Result<Color, IntoColorError> {
+    fn try_from([red, green, blue]: [i16; 3]) -> Result<Self, IntoColorError> {
         let red_result = u8::try_from(red);
         let green_result = u8::try_from(green);
         let blue_result = u8::try_from(blue);
         
         match (red_result, green_result, blue_result) {
-            (Ok(red), Ok(green), Ok(blue)) => Ok(Color { red, green, blue }),
+            (Ok(red), Ok(green), Ok(blue)) => Ok(Self { red, green, blue }),
             _ => Err(IntoColorError::IntConversion),
         }
     }
@@ -51,7 +51,7 @@ impl TryFrom<[i16; 3]> for Color {
 impl TryFrom<&[i16]> for Color {
     type Error = IntoColorError;
     #[inline]
-    fn try_from(slice: &[i16]) -> Result<Color, IntoColorError> {
+    fn try_from(slice: &[i16]) -> Result<Self, IntoColorError> {
         if slice.len() != 3 {
             return Err(IntoColorError::BadLen);
         }
@@ -65,7 +65,7 @@ impl TryFrom<&[i16]> for Color {
         let blue_result = u8::try_from(blue);
         
         match (red_result, green_result, blue_result) {
-            (Ok(red), Ok(green), Ok(blue)) => Ok(Color { red, green, blue }),
+            (Ok(red), Ok(green), Ok(blue)) => Ok(Self { red, green, blue }),
             _ => Err(IntoColorError::IntConversion),
         }
     }

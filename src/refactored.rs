@@ -17,7 +17,11 @@ pub enum IntoColorError {
 // Tuple implementation
 impl TryFrom<(i16, i16, i16)> for Color {
     type Error = IntoColorError;
-    fn try_from((red, green, blue): (i16, i16, i16)) -> Result<Color, IntoColorError> {
+    fn try_from((red, green, blue): (i16, i16, i16)) -> Result<Self, IntoColorError> {
+        // Clippy wants me to replace all the `Color` instances with `Self` when I can, but
+        // if I change this particular one I get a bunch of (totally incorrect) warnings
+        // about the arguments `red`, `green`, and `blue` being unused and needing _s.
+        #[allow(clippy::use_self)]
         Color::try_from([red, green, blue])
     }
 }
@@ -25,11 +29,11 @@ impl TryFrom<(i16, i16, i16)> for Color {
 // Array implementation
 impl TryFrom<[i16; 3]> for Color {
     type Error = IntoColorError;
-    fn try_from(color_elements: [i16; 3]) -> Result<Color, IntoColorError> {
-        let result = color_elements.map(|v| u8::try_from(v));
+    fn try_from(color_elements: [i16; 3]) -> Result<Self, IntoColorError> {
+        let result = color_elements.map(u8::try_from);
 
         match result {
-            [Ok(red), Ok(green), Ok(blue)] => Ok(Color { red, green, blue }),
+            [Ok(red), Ok(green), Ok(blue)] => Ok(Self { red, green, blue }),
             _ => Err(IntoColorError::IntConversion),
         }
     }
@@ -38,9 +42,9 @@ impl TryFrom<[i16; 3]> for Color {
 // Slice implementation
 impl TryFrom<&[i16]> for Color {
     type Error = IntoColorError;
-    fn try_from(slice: &[i16]) -> Result<Color, IntoColorError> {
+    fn try_from(slice: &[i16]) -> Result<Self, IntoColorError> {
         let a = <[i16; 3]>::try_from(slice).map_err(|_| IntoColorError::BadLen)?;
-        Color::try_from(a)
+        Self::try_from(a)
     }
 }
 
