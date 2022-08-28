@@ -1,3 +1,5 @@
+use std::num::TryFromIntError;
+
 #[derive(Debug, PartialEq)]
 pub struct Color {
     red: u8,
@@ -26,16 +28,19 @@ impl TryFrom<(i16, i16, i16)> for Color {
     }
 }
 
+impl From<TryFromIntError> for IntoColorError {
+    fn from(_: TryFromIntError) -> IntoColorError {
+        IntoColorError::IntConversion
+    }
+}
+
 // Array implementation
 impl TryFrom<[i16; 3]> for Color {
     type Error = IntoColorError;
     fn try_from(color_elements: [i16; 3]) -> Result<Self, IntoColorError> {
-        let result = color_elements.map(u8::try_from);
-
-        match result {
-            [Ok(red), Ok(green), Ok(blue)] => Ok(Self { red, green, blue }),
-            _ => Err(IntoColorError::IntConversion),
-        }
+        let [red, green, blue] = color_elements
+            .try_map(u8::try_from)?;
+        Ok(Self { red, green, blue })
     }
 }
 
