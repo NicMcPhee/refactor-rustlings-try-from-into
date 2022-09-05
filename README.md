@@ -37,7 +37,7 @@ Jon Gjengset's [Crust of Rust](https://www.youtube.com/playlist?list=PLqbS7AVVEr
 series of videos provides a ton of depth and detail. Finally, if you're
 looking for a set of exercises, I was generally very impressed
 by [the Rustlings exercises](https://github.com/rust-lang/rustlings)
-and learned a *lot* about the language
+and learned a _lot_ about the language
 by going through them all.
 
 - [What's the problem?](#whats-the-problem)
