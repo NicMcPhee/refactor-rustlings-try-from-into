@@ -18,9 +18,11 @@ pub enum IntoColorError {
 impl TryFrom<(i16, i16, i16)> for Color {
     type Error = IntoColorError;
     fn try_from((red, green, blue): (i16, i16, i16)) -> Result<Self, IntoColorError> {
-        // Clippy wants me to replace all the `Color` instances with `Self` when I can, but
-        // if I change this particular one I get a bunch of (totally incorrect) warnings
-        // about the arguments `red`, `green`, and `blue` being unused and needing _s.
+        // Clippy recommends replacing all the `Color` instances with `Self` when I can, but
+        // if I change this particular one I get a bunch of (incorrect) warnings
+        // about the arguments `red`, `green`, and `blue` being "only used in recursion"
+        // and needing _s. This is a known problem and hopefully fixed in
+        // https://github.com/rust-lang/rust-clippy/pull/8804
         #[allow(clippy::use_self)]
         Color::try_from([red, green, blue])
     }
@@ -29,8 +31,8 @@ impl TryFrom<(i16, i16, i16)> for Color {
 // Array implementation
 impl TryFrom<[i16; 3]> for Color {
     type Error = IntoColorError;
-    fn try_from(color_elements: [i16; 3]) -> Result<Self, IntoColorError> {
-        let result = color_elements.map(u8::try_from);
+    fn try_from(array: [i16; 3]) -> Result<Self, IntoColorError> {
+        let result = array.map(u8::try_from);
 
         match result {
             [Ok(red), Ok(green), Ok(blue)] => Ok(Self { red, green, blue }),
