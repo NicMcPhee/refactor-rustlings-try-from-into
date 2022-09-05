@@ -31,14 +31,13 @@ folks with some programming experience.
 [The Rust Book](https://doc.rust-lang.org/book/)
 is an excellent intro to the language if you want to learn
 more. If you prefer videos, then
-[the Let's Get Rusty YouTube
-channel](https://www.youtube.com/playlist?list=PLai5B987bZ9CoVR-QEIN9foz4QCJ0H2Y8)
-went through the whole book, and
-[Jon Gjengset'a Crust of Rust series of videos](https://www.youtube.com/playlist?list=PLqbS7AVVErFiWDOAVrPt7aYmnuuOLYvOa)
-provides a ton of great depth and detail. Finally, if you're
+the [Let's Get Rusty](https://www.youtube.com/playlist?list=PLai5B987bZ9CoVR-QEIN9foz4QCJ0H2Y8)
+YouTube channel went through the whole book, and
+Jon Gjengset's [Crust of Rust](https://www.youtube.com/playlist?list=PLqbS7AVVErFiWDOAVrPt7aYmnuuOLYvOa)
+series of videos provides a ton of depth and detail. Finally, if you're
 looking for a set of exercises, I was generally very impressed
 by [the Rustlings exercises](https://github.com/rust-lang/rustlings)
-and learned a lot about the language
+and learned a *lot* about the language
 by going through them all.
 
 - [What's the problem?](#whats-the-problem)
@@ -62,8 +61,8 @@ by going through them all.
 ## What's the problem?
 
 [The Rustlings `try-from-into` exercise](https://github.com/rust-lang/rustlings/blob/main/exercises/conversions/try_from_into.rs)
-has us implement three different versions of constructing an
-RGB color struct from three integer values for red, green, and
+asks us to implement constructing an
+RGB `Color` struct from three integer values for red, green, and
 blue. The `Color` struct is a collection of three (named) `u8`
 (unsigned 8-bit) values:
 
@@ -96,7 +95,7 @@ and one takes them as a _slice_. To simplify
 the initial discussion, though, I'll focus on a version similar
 to the stub above, where the three color components are passed in
 as separate arguments. Once we've finished going over the basics of
-`i16` to `u8` conversion to death, we'll switch to the versions
+`i16` to `u8` conversion, we'll switch to the versions
 required by the actual exercise.
 
 ## Conversion: Its many risks and challenges
@@ -115,7 +114,7 @@ fn try_from(r: i16, g: i16, b: i16) -> Color {
 }
 ```
 
-While something like that might work in many languages
+While something like that might seem to work in many languages
 (looking at you, C), or might generate runtime exceptions
 in others, it won't even compile in Rust. We get three
 errors (one for each color component) of the form:
@@ -148,7 +147,7 @@ certainly not what we want. For example, converting -1 (as
 > four out of seven critical variables against overflow".
 > ([Wikipedia](https://en.wikipedia.org/wiki/Ariane_flight_V88))
 >
-> This led to to a freak-out in the guidance system and the
+> This led to to a freak-out in the guidance system, the
 > rocket started to break up, and self-destruct was initiated.
 > Luckily there were no people on board, but it still caused
 > the loss of an expensive scientific satellite, and scattered
@@ -194,8 +193,8 @@ do something like:
     let i: i16 = 300;
     let u_result: Result<u8, TryFromIntError> = u8::try_from(i);
     match u_result {
-        Ok(u) => println!("{} as i16 to {} as u8", i, u),
-        Err(e) => println!("Got an <{}> error!", e),
+        Ok(u) => println!("{i} as i16 to {u} as u8"),
+        Err(e) => println!("Got an <{e}> error!"),
     }
 ```
 
@@ -206,7 +205,9 @@ Got an <out of range integral type conversion attempted> error!
 ```
 
 Here the `u8::try_from(i)` says we want to _try_ to convert `i`
-(which has type `i16`) to `u8`. This returns a
+(which has type `i16`) to the type `u8`. Because we're trying
+to do this conversion (and not guaranteed to succeed), the attempted
+conversion returns a
 
 ```rust
 Result<u8, TryFromIntError>
@@ -283,6 +284,11 @@ It doesn't actually solve any of the posed problems, but it
 does successfully solve a closely related problem, so we're
 heading in a useful direction.
 
+> Another option that would avoid the use of `match` would be to
+> use `map_err()` and the `?` operator, but that doesn't work with
+> the use of `map` we'll get to later, so we'll stick to using
+> `match` for now.
+
 ## The actual Rustlings exercise
 
 Now that we've worked that out, let's move on to the actual
@@ -312,10 +318,10 @@ forms:
 As an example, this will allow us to make calls like
 
 ```rust
-    let color_result = Color::try_from((183, 65, 14));
+    let color_result = Color::try_from([183, 65, 14]);
 ```
 
-to convert from a tuple of color components to a
+to convert from an array of color components to a
 `Result<Color, IntoColorError>`, and from that we can extract
 `Color` structs when the conversions are all successful.
 
@@ -458,7 +464,7 @@ This is why our `IntoColorError` type has the `BadLen` variant, so we can
 return that error in cases where the slice doesn't have the right length
 (i.e., 3).
 
-Note that, depending on how we write it, our code might not actually fail
+Depending on how we write it, our code might not actually fail
 if our input slice has too many elements. You could imagine a specification
 where it's fine if the input slice has too many elements; we just use the
 first three to construct the `Color` and ignore the rest.
@@ -466,7 +472,7 @@ The tests provided with the
 exercise, however, suggest that we are expected to return a `BadLen` error
 in that circumstance as well.
 
-So all we need to do here is add a length check before we start extracting
+So we need to add a length check before we start extracting
 and converting values, returning an `Err(IntoColorError::BadLen)` if the
 the length isn't three:
 
@@ -504,10 +510,10 @@ impl TryFrom<&[i16]> for Color {
 ```
 
 Now the length check ensures that all the slice accesses (where we define
-`red`, `green`, and `blue`) will be legal, and from there forward it's
-_exactly_ the same as the previous two implementations (causing the
-refactoring opportunity warning bell to go "Ding , Ding, Ding!" _very_ loudly).
-So let's do some refactoring!
+`red`, `green`, and `blue`) will be legal. From there forward it's
+_exactly_ the same as the previous two implementations, causing the
+refactoring opportunity warning bell to go "Ding , Ding, Ding!"
+_very_ loudly. So let's do some refactoring!
 
 ## Let's refactor this puppy
 
@@ -692,7 +698,7 @@ and we can happily move on. If `<[16; 3]>::try_from(slice)` returns
 an `Err()` variant, however, then the `?` operator will immediately
 return that `Err()` and none of the subsequent code will be run.
 
-This is _almost_ perfect, but we end up with a compiler error:
+This _almost_ works, but we end up with a compiler error:
 
 ```text
 the trait `From<TryFromSliceError>` is not implemented for `IntoColorError`
@@ -811,6 +817,10 @@ extract the specific errors generated by `u8::try_from(v)`, we'd either
 need more complex `match`ing or need to use something like `map_err()`
 to process those errors.
 
+> If/when [the `try_map` method on arrays](https://doc.rust-lang.org/nightly/std/primitive.array.html#method.try_map)
+> moves into the release version of Rust, we could use it to
+> simplify this further and avoid the `match` clause altogether.
+
 ### Refactoring wrap-up
 
 Here's our final version, which is about half the size of the initial
@@ -888,9 +898,6 @@ This is why one does
 performance profiling on large systems to see where the
 bottlenecks are. If they turn out to be in `Color::try_from()`,
 then you make sure you write that to be as fast as possible.
-Odds are, though, that this isn't likely to be your
-bottleneck, and if it is then there are probably bigger
-issues at stake than this refactoring.
 
 ## Thanks
 
