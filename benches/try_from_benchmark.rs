@@ -4,15 +4,14 @@ use refactor_rustlings_try_from_into::refactored::Color as Refactored_Color;
 
 fn bench_try_from(c: &mut Criterion) {
     let mut group = c.benchmark_group("TryFrom");
+    let v = vec![183, 65, 14];
+
     group.bench_function("original from tuple", |b| b.iter(|| Original_Color::try_from(black_box((183, 65, 14))).unwrap()));
     group.bench_function("original from array", |b| b.iter(|| Original_Color::try_from(black_box([183, 65, 14])).unwrap()));
-    let v = vec![183, 65, 14];
-    // With slice we should use `try_from` function
     group.bench_function("original from slice", |b| b.iter(|| Original_Color::try_from(black_box(&v[..])).unwrap()));
+
     group.bench_function("refactored from tuple", |b| b.iter(|| Refactored_Color::try_from(black_box((183, 65, 14))).unwrap()));
     group.bench_function("refactored from array", |b| b.iter(|| Refactored_Color::try_from(black_box([183, 65, 14])).unwrap()));
-    let v = vec![183, 65, 14];
-    // With slice we should use `try_from` function
     group.bench_function("refactored from slice", |b| b.iter(|| Refactored_Color::try_from(black_box(&v[..])).unwrap()));
     group.finish();
 }
