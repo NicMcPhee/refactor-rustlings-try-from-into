@@ -1,5 +1,18 @@
 # Refactoring: Rust and the Rustlings `try-from-into` exercise  🦀 <!-- omit in toc -->
 
+- [What's the problem?](#whats-the-problem)
+- [Conversion: Its many risks and challenges](#conversion-its-many-risks-and-challenges)
+- [Enter the `TryFrom` trait and `Result`](#enter-the-tryfrom-trait-and-result)
+  - [`match`ing three `Result`s](#matching-three-results)
+- [The actual Rustlings exercise](#the-actual-rustlings-exercise)
+  - [The `TryFrom` trait](#the-tryfrom-trait)
+  - [Handling a tuple as input](#handling-a-tuple-as-input)
+  - [Handling a slice as input](#handling-a-slice-as-input)
+- [Let's refactor this puppy](#lets-refactor-this-puppy)
+  - [Handle tuples using arrays](#handle-tuples-using-arrays)
+  - [Handle slices using arrays](#handle-slices-using-arrays)
+  - [Mapping over the array elements](#mapping-over-the-array-elements)
+
 > This is the script for the video version of this write-up.
 
 > Open with a title card with the title above, and maybe the refactored
@@ -40,7 +53,6 @@ of a `Color` struct
 > Display the Rust definition of the `Color` struct:
 >
 > ```rust
->
 > struct Color {
 >     red: u8,
 >     green: u8,
@@ -110,7 +122,6 @@ Returning to our problem, we could just try letting Rust do the
 squishing for us, with something like this
 
 > ```rust
->
 > fn try_from(r: i16, g: i16, b: i16) -> Color {
 >     Color { red: r, green: g, blue: b }
 > }
@@ -191,7 +202,7 @@ simple example we might having something like:
 >     println!("Converting {i} as i16 to u8 resulted in {u}.")
 > }
 > ```
-
+>
 > Go from `let u : u8 = i` to `try_from(i)` to `<u8>::try_from(i)`.
 > Show that this works, but returns `Err(TryFromIntError(()))`
 > from the `Result` type. Also show that if we change it to 30
@@ -282,3 +293,493 @@ heading in a useful direction.
 > use `map_err()` and the `?` operator, but that doesn't work with
 > the use of `map` we'll get to later, so we'll stick to using
 > `match` for now.
+
+## The actual Rustlings exercise
+
+> Title slide with `IntoColorError` as the background
+
+Now that we've worked out the basics of converting `i16` to `u8`,
+let's move on to the actual Rustlings exercises.
+
+They use the `Color` struct as defined above, and an extended version of the
+`IntoColorError` type:
+
+> ```rust
+> struct Color {
+>     red: u8,
+>     green: u8,
+>     blue: u8,
+> }
+> 
+> enum IntoColorError {
+>     IntConversion, // Integer conversion error
+>     BadLen,        // Slice argument with the incorrect length
+> }
+> ```
+
+We'll use the `IntConversion` variant when we have a problem converting from
+`i16` to `u8`. We'll see why we need the `BadLen` variant a little later.
+
+The Rustlings exercise asks us to implement the `TryFrom` trait for `Color`
+for each of three desired input forms:
+
+> - A tuple of three color components
+> - An array of three color components
+> - A slice containing the color components
+
+As an example, this will allow us to make calls like
+
+> Add this to the previous slide
+> ```rust
+> let color_result: Result<Color, IntoColorError> = Color::try_from([183, 65, 14]);
+> ```
+> Add arrow that indicates that we're converting from the array to
+> the `Result` type.
+
+to convert from an array of color components to a
+`Result<Color, IntoColorError>`, and from that we can extract
+`Color` structs when the conversions are all successful.
+
+### The `TryFrom` trait
+
+> Title slide with the `TryFrom` stub in the background
+
+The exercise gives us stubs for all three instances of the `TryFrom`
+trait that we need to implement. Here, for example, is the stub for
+converting from a tuple:
+
+> ```rust
+> impl TryFrom<(i16, i16, i16)> for Color {
+>     type Error = IntoColorError;
+>     fn try_from(tuple: (i16, i16, i16)) -> Result<Color, IntoColorError> {
+>         // ...
+>     }
+> }
+> ```
+
+This implementation of the `TryFrom` trait tells Rust how to convert _from_
+a tuple of three `i16` values into a `Color` struct. This will allow us
+to make calls like
+
+> Add to previous slide
+> ```rust
+> Color::try_from((183, 65, 14))
+> ```
+
+to construct a `Color`, returning a `Result` type to capture the possibility
+of an error when performing the conversion.
+
+### Handling a tuple as input
+
+> Title slide that has the unfinished `TryFrom` stub as its background.
+
+So now that we understand the problem, let's implement the first case
+where we have a tuple as our input.
+
+> Switch to VSCode screen cast mode here. Start with the stub, with the
+> argument highlighted. Have the typing happen while the following
+> voiceover is occurring.
+
+This is almost exactly the same as the implementation of the simplified
+function from earlier, namely we convert each color component to a
+`u8` and use a `match` clause to check for errors:
+
+```rust
+impl TryFrom<(i16, i16, i16)> for Color {
+    type Error = IntoColorError;
+    fn try_from(tuple: (i16, i16, i16)) -> Result<Color, IntoColorError> {
+        let red_result = u8::try_from(tuple.0);
+        let green_result = u8::try_from(tuple.1);
+        let blue_result = u8::try_from(tuple.2);
+        
+        match (red_result, green_result, blue_result) {
+            (Ok(red), Ok(green), Ok(blue)) => Ok(Color { red, green, blue }),
+            _ => Err(IntoColorError::IntConversion),
+        }
+    }
+}
+```
+
+This works fine and passes the relevant tests, but I'm not a fan of the
+`tuple.0` notation since it's awfully easy to write `tuple.2` instead of
+`tuple.1` and not have anyone notice the mistake, either as you're making
+it, in a code review, or debugging after the fact.
+
+> Start typing this change concurrent with the following paragraph of
+> voiceover.
+
+```rust
+impl TryFrom<(i16, i16, i16)> for Color {
+    type Error = IntoColorError;
+    fn try_from((red, green, blue): (i16, i16, i16)) -> Result<Color, IntoColorError> { 
+        let red_result = u8::try_from(red);
+        let green_result = u8::try_from(green);
+        let blue_result = u8::try_from(blue);
+        
+        match (red_result, green_result, blue_result) {
+            (Ok(red), Ok(green), Ok(blue)) => Ok(Color { red, green, blue }),
+            _ => Err(IntoColorError::IntConversion),
+        }
+    }
+}
+
+We can avoid the need for explicitly extracting the tuple components by taking
+advantage of Rust's pattern matching in the function argument. This allows
+us to give the components more useful names, which we can then use in the
+conversion statements.
+
+Not a huge change, but definitely an improvement in readability
+and maintainability in my opinion.
+
+### Handling an array as input
+
+> Title slide with the array stub as the background
+
+Now let's move on to handling an array as our input.
+
+> Back to VSCode, scrolled down to the appropriate stub with the argument
+> highlighted. Start typing right away while the voiceover continues.
+
+```rust
+impl TryFrom<[i16; 3]> for Color {
+    type Error = IntoColorError;
+    fn try_from([red, green, blue]: [i16; 3]) -> Result<Color, IntoColorError> {
+        let red_result = u8::try_from(red);
+        let green_result = u8::try_from(green);
+        let blue_result = u8::try_from(blue);
+        
+        match (red_result, green_result, blue_result) {
+            (Ok(red), Ok(green), Ok(blue)) => Ok(Color { red, green, blue }),
+            _ => Err(IntoColorError::IntConversion),
+        }
+    }
+}
+```
+
+The array implementation is almost identical to the tuple
+implementation, with the _only_ different being in the function
+argument pattern matching used to extract the arguments `red`,
+`green`, and `blue`.
+
+We'll actually copy/paste the function body
+from the tuple function rather than type all this out again.
+
+The remarkable similarity  between these two implementations _strongly_
+suggests a refactoring opportunity, but we'll come to that after we've
+implemented the third part of the exercise.
+
+### Handling a slice as input
+
+> Title slide with the slice stub as the background
+
+The third part of the exercise is a bit trickier because the input is an
+array slice.
+
+> Back to VSCode, scrolled down to the appropriate stub, highlighting
+> the argument.
+
+The issue here that we don't know the length of an array slice. The tuple
+and the array inputs in the previous versions were both were guaranteed
+to have exactly three elements, but the vector slice in this case could
+have any length, from 0 to arbitrarily many elements. So we can't just pattern
+match against `red`, `green`, and `blue` like we did before, and will in
+fact have to extract the relevant elements from the slice "by hand" using
+something like:
+
+> Move to slide with this code
+> ```rust
+> let red = slice[0];
+> let green = slice[1];
+> let blue = slice[2];
+> ```
+
+There's a problem here, though, which is the slice might not contain
+exactly three elements. If it contains fewer than three, then our code
+will panic at run time with an error like:
+
+> Add this below the three lines in the previous slide and *read* the error.
+> ```text
+> thread … panicked at 'index out of bounds: the len is 1 but the index is 2'
+> ```
+
+> Slight pause so they can read the error message.
+
+> Then go back to a slide with the `IntoColorError` type:
+> ```rust
+> enum IntoColorError {
+>     IntConversion, // Integer conversion error
+>     BadLen,        // Slice argument with the incorrect length
+> }
+> ```
+
+This is why our `IntoColorError` type has the `BadLen` variant, so we can
+return that error in cases where the slice doesn't have the right length
+(i.e., 3).
+
+Depending on how we write it, our code might not actually fail
+if our input slice has too many elements. You could imagine a specification
+where it's fine if the input slice has too many elements; we just use the
+first three to construct the `Color` and ignore the rest.
+
+The tests provided with the exercise, however, suggest that we are
+expected to return a `BadLen` error in that circumstance as well.
+
+> Go back to VS Code and add the length check during this voiceover.
+
+```rust
+    if slice.len() != 3 {
+        return Err(IntoColorError::BadLen);
+    }
+```
+
+So we need to add a length check before we start extracting
+and converting values, returning an `Err(IntoColorError::BadLen)` if the
+the length isn't three.
+
+Now that we're guaranteed that the slice has the desired length,
+we can use the ideas from the previous solutions to finish this
+component of the exericse.
+
+> Type in the `let red = slice[0]` lines, and paste in the body below
+> that.
+
+```rust
+impl TryFrom<&[i16]> for Color {
+    type Error = IntoColorError;
+    fn try_from(slice: &[i16]) -> Result<Color, IntoColorError> {
+        if slice.len() != 3 {
+            return Err(IntoColorError::BadLen);
+        }
+
+        let red = slice[0];
+        let green = slice[1];
+        let blue = slice[2];
+
+        let red_result = u8::try_from(red);
+        let green_result = u8::try_from(green);
+        let blue_result = u8::try_from(blue);
+        
+        match (red_result, green_result, blue_result) {
+            (Ok(red), Ok(green), Ok(blue)) => Ok(Color { red, green, blue }),
+            _ => Err(IntoColorError::IntConversion),
+        }
+    }
+}
+```
+
+After extracting the relevant elements from the slice, we'll again paste in
+the body from the previous solutions, causing the
+refactoring opportunity warning bell to go "Ding , Ding, Ding!"
+_very_ loudly. 
+
+> Run the tests in VS Code, showing that we've solved the problem.
+
+If we now run the tests, we'll see that have technically solved the problem
+as all the tests pass. So we've hit the "Green" part of the "red-green-refactor"
+cycle, which is cool!
+
+Along the way, though, we've copy/pasted a substantial block of code, so
+there are definitely opportunities for refactoring. So let's do it!
+
+## Let's refactor this puppy
+
+> Title slide with the copied chunk as the background
+
+We know from how we implemented things, there are three copies of the same
+substantial block of code.
+
+> Switch to VS Code, scrolled to the array solution, with the body
+> highlighted.
+
+The slice version has a lot of slice-specific code, but both the tuple and
+the array versions almost exactly capture the shared logic, differing only
+in the pattern matching on the function's argument. So either of them could
+nicely form the basis of our refactoring.
+
+Looking ahead a little, I'm going to define the first and third versions
+(tuple and slice) in terms of the second (array) version. The main reason
+for that is that we can map across arrays, but we can't map across tuples.
+Tuples can contain elements of different types, which makes mapping impossible
+(at least in a strongly typed language like Rust) since we wouldn't know
+how to type the function we're mapping across the tuple.
+
+### Handle tuples using arrays
+
+> Title slide with the tuple refactoring as the background
+
+It's pretty easy to rewrite the tuple version so that it uses the array
+version.
+
+> Switch to VS Code, and do the refactoring while the voiceover happens.
+
+```rust
+impl TryFrom<(i16, i16, i16)> for Color {
+    type Error = IntoColorError;
+    fn try_from((red, green, blue): (i16, i16, i16)) -> Result<Color, IntoColorError> { 
+        Color::try_from([red, green, blue])
+    }
+}
+```
+
+All we need to do is rewrite the input tuple to a array of
+three `i16`s and then call the array version.
+
+> Re-run the tests and confirm that they're still green.
+
+And voilà! We've replaced seven lines of code with just a single line and
+the tests still pass!
+
+### Handle slices using arrays
+
+> Title slide with the final slice refactoring as the background
+
+The slice version will require a little more work because we'll still
+need to check the length and extract the components.
+
+> Switch to VS Code and do the first refactoring along with the voiceover.
+
+```rust
+impl TryFrom<&[i16]> for Color {
+    type Error = IntoColorError;
+    fn try_from(slice: &[i16]) -> Result<Color, IntoColorError> {
+        if slice.len() != 3 {
+            return Err(IntoColorError::BadLen);
+        }
+
+        let red = slice[0];
+        let green = slice[1];
+        let blue = slice[2];
+
+        Color::try_from([red, green, blue])
+    }
+}
+```
+
+A simple way to refactor the slice version is to keep the length test,
+extract the `red`, `green`, and `blue` components, and then call the
+array version
+
+> Re-run the tests to confirm that we're still green.
+
+This is an improvement, cutting the number of lines roughly in half.
+
+An alternative, though, would be to use `try_from` in yet another form
+that converts slices to arrays:
+
+> Switch to slide with this code:
+
+```rust
+    let a = <[i16; 3]>::try_from(slice).unwrap();
+```
+
+Here the `<[i16; 3]>::try_from(slice)` call attempts to convert
+`slice` into an array of three `i16`s.
+
+This can fail if the given
+vector doesn't have the right number of elements, which is why the
+`try_from()` call returns a `Result` type. If we do the length check
+first, then we'll _know_ that the length of the vector `slice` is 3, so we
+can just call `.unwrap()` to extract the value in the `Ok()` variant.
+That `unwrap()` call will panic if the slice has the wrong length, but
+we're safe because of the length check.
+
+> Switch back to VS Code and type as the voiceover continues.
+
+```rust
+impl TryFrom<&[i16]> for Color {
+    type Error = IntoColorError;
+    fn try_from(slice: &[i16]) -> Result<Color, IntoColorError> {
+        if slice.len() != 3 {
+            return Err(IntoColorError::BadLen);
+        }
+        let a = <[i16; 3]>::try_from(slice).unwrap();
+        Color::try_from(a)
+    }
+}
+```
+
+We can then use this conversion to further simplify the slice version.
+
+> Confirm that this all passes.
+
+> Switch to slide with this code block:
+> ```rust
+>         if slice.len() != 3 {
+>             return Err(IntoColorError::BadLen);
+>         }
+>         let a = <[i16; 3]>::try_from(slice).unwrap();
+> ```
+
+Since the `Color::try_from()` we're defining already returns a `Result`, we
+don't _have_ to avoid returning an error. We also don't even have to
+explicitly _check_ for the error. The Rust `?` construct allows us
+to extract the `Ok()` value from a `Result` type, while immediately
+returning an error if the `Result` is an `Err()` variant instead of an
+`Ok()`. So we could _almost_ replace this block with
+
+> Put this below the previous block, highlighting the ? at the end.
+> ```rust
+>         let a = <[i16; 3]>::try_from(slice)?;
+> ```
+
+Here if the `<[16; 3]>::try_from(slice)` call returns an `Ok()` value,
+that value will be extracted by the `?` operator and assigned to `a`
+and we can happily move on. If `<[16; 3]>::try_from(slice)` returns
+an `Err()` variant, however, then the `?` operator will immediately
+return that `Err()` and none of the subsequent code will be run.
+
+> Switch back to VS Code and make that change.
+
+This _almost_ works, but as you can see we end up with a compiler error
+
+> Hover over the error so we can see what's happening. Or switch to
+> a terminal and run `cargo build` and show the error there.
+
+```text
+the trait `From<TryFromSliceError>` is not implemented for `IntoColorError`
+```
+
+> Highlight the relevant parts of the code as we go through the voiceover.
+
+What this is telling us is that the `<[i16; 3]>::try_from(slice)` call
+returns a `TryFromSliceError` if there's a problem, but our function is
+declared as returning `Result<Color, IntoColorError>`. Rust doesn't know
+how to convert a `TryFromSliceError` into a `IntoColorError`, hence the
+error.
+
+We have a couple of options here. We _could_ actually implement the
+`TryFrom` trait for converting a `TryFromSliceError` into a
+`IntoColorError`.
+
+> Make this change while the voiceover happens.
+> ```rust
+>   let a = <[i16; 3]>::try_from(slice).map_err(|_| IntoColorError::BadLen)?;
+> ```
+
+A simpler option in this case, though, is to use the `map_err`
+function to convert the `TryFromSliceError` into a `IntoColorError`.
+
+Now if the `<[i16; 3]>::try_from(slice)` call returns an `Ok()` variant,
+that will be left alone by the `map_err()` call, and the value will
+be extracted by the `?` operator.
+
+If the `<[i16; 3]>::try_from(slice)` call returns an `Err()` variant,
+however, the error will be mapped by `map_err()` to a
+`IntoColorError`, and the `?` operator will immediately return that error.
+Note that the use of `_` as the argument to the `map_err()` closure
+says we don't care _what_ error type was returned by
+`<[i16; 3]>::try_from(slice)`; we'll convert _any_ error type that
+it returns into `IntoColorError::BadLen`.
+
+> Re-run the tests.
+
+And now we have refactored this part of the exercise down to two lines of code
+and things still work!
+
+After the refactoring our three definitions are collectively 28 lines of code,
+versus 49 lines originally, or a reduction of over 40%!
+
+### Mapping over the array elements
+
+> Title slide with the `color_elements.map()` line as the background.
+
