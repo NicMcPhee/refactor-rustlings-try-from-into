@@ -3,7 +3,7 @@
 // Basically, this is the same as From. The main difference is that this should return a Result type
 // instead of the target type itself.
 // You can read more about it at https://doc.rust-lang.org/std/convert/trait.TryFrom.html
-use std::convert::{TryFrom, TryInto};
+use std::{convert::{TryFrom, TryInto}};
 
 #[derive(Debug, PartialEq)]
 struct Color {
@@ -32,28 +32,54 @@ enum IntoColorError {
 // but the slice implementation needs to check the slice length!
 // Also note that correct RGB color values must be integers in the 0..=255 range.
 
+fn try_from(r: i16, g: i16, b: i16) -> Result<Color, IntoColorError> {
+    let red_result = u8::try_from(r);
+    let green_result = u8::try_from(g);
+    let blue_result = u8::try_from(b);
+    
+    match (red_result, green_result, blue_result) {
+        (Ok(red), Ok(green), Ok(blue)) => Ok(Color { red, green, blue }),
+        _ => Err(IntoColorError::IntConversion),
+    }
+}
+
 // Tuple implementation
 impl TryFrom<(i16, i16, i16)> for Color {
     type Error = IntoColorError;
-    fn try_from(tuple: (i16, i16, i16)) -> Result<Self, Self::Error> {
+    fn try_from((red, green, blue): (i16, i16, i16)) -> Result<Color, IntoColorError> { 
+        Color::try_from([red, green, blue])
     }
 }
 
 // Array implementation
 impl TryFrom<[i16; 3]> for Color {
     type Error = IntoColorError;
-    fn try_from(arr: [i16; 3]) -> Result<Self, Self::Error> {
+    fn try_from(color_elements: [i16; 3]) -> Result<Color, IntoColorError> {
+        let result = color_elements.map(|v| u8::try_from(v));
+
+        match result {
+            [Ok(red), Ok(green), Ok(blue)] => Ok(Color { red, green, blue }),
+            _ => Err(IntoColorError::IntConversion),
+        }
     }
 }
 
 // Slice implementation
 impl TryFrom<&[i16]> for Color {
     type Error = IntoColorError;
-    fn try_from(slice: &[i16]) -> Result<Self, Self::Error> {
+    fn try_from(slice: &[i16]) -> Result<Color, IntoColorError> {
+        let a = <[i16; 3]>::try_from(slice).map_err(|_| IntoColorError::BadLen)?;
+        Color::try_from(a)
     }
 }
 
 fn main() {
+    // Use my `from` function
+    let c1 = try_from(183, 65, 14);
+    println!("{:?}", c1);
+    let c2 = try_from(300, 65, 14);
+    println!("{:?}", c2);
+
     // Use the `from` function
     let c1 = Color::try_from((183, 65, 14));
     println!("{:?}", c1);
@@ -69,6 +95,11 @@ fn main() {
     // or take slice within round brackets and use TryInto
     let c4: Result<Color, _> = (&v[..]).try_into();
     println!("{:?}", c4);
+
+    let v: Vec<i16> = vec![183, 65, 14];
+    println!("Converting slice {:?}.", v);
+    let a: [i16; 3] = <[i16; 3]>::try_from(v).unwrap();
+    println!("Converting yields array {:?}.", a);
 }
 
 #[cfg(test)]
