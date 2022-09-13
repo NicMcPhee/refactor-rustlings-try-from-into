@@ -12,6 +12,7 @@
   - [Handle tuples using arrays](#handle-tuples-using-arrays)
   - [Handle slices using arrays](#handle-slices-using-arrays)
   - [Mapping over the array elements](#mapping-over-the-array-elements)
+- [Wrap-up](#wrap-up)
 
 > This is the script for the video version of this write-up.
 
@@ -193,7 +194,8 @@ where `A` is the _type_ we're trying to convert _to_, and
 `v` is the _value_ we're trying to convert _from_. In our
 simple example we might having something like:
 
-> Go to VSCode now.
+> Go to VSCode now? Maybe not – maybe stay in Playground until
+> we get to the actual exercise code.
 
 > ```rust
 > fn main() {
@@ -223,8 +225,6 @@ simple example we might having something like:
 
 > Title slide with the finished code for the simplified version
 > as the background.
-
-:warning: This is where I left off
 
 Given this, a plausible start to our simplified version would
 be something like:
@@ -377,10 +377,21 @@ So now that we understand the problem, let's implement the first case
 where we have a tuple as our input.
 
 > Switch to VSCode screen cast mode here. Start with the stub, with the
-> argument highlighted. Have the typing happen while the following
+> argument highlighted.
+
+> Have `bacon` running in a terminal along the bottom.
+
+Down in the bottom terminal we're using the Rust `bacon` tool to
+watch the code and continually rerun the tests whenever we make
+changes. At the moment all 14 of the tests are failing because
+we haven't implemented any parts of the exercise, so we're
+in the "red" phase of the Red-Green-Refactor process.
+
+> Have the typing happen while the following
 > voiceover is occurring.
 
-This is almost exactly the same as the implementation of the simplified
+This first case, where we have a tuple as our input, is almost exactly
+the same as the implementation of the simplified
 function from earlier, namely we convert each color component to a
 `u8` and use a `match` clause to check for errors:
 
@@ -782,4 +793,63 @@ versus 49 lines originally, or a reduction of over 40%!
 ### Mapping over the array elements
 
 > Title slide with the `color_elements.map()` line as the background.
+
+This is pretty nice, but I still find the repetition in this part
+of the array implementation annoying:
+
+> Go to VS Code, with this code highlighted. Keep making changes
+> as the voiceover continues.
+> 
+> ```rust
+>     let red_result = u8::try_from(red);
+>     let green_result = u8::try_from(green);
+>     let blue_result = u8::try_from(blue);
+> ```
+
+We can avoid this by using `map` to apply `u8::try_from()` to each of the
+color elements instead of having to make three separate calls.
+
+```rust
+    fn try_from(color_elements: [i16; 3]) -> Result<Color, IntoColorError> {
+        let result = color_elements.map(|v| u8::try_from(v));
+
+        match result {
+            [Ok(red), Ok(green), Ok(blue)] => Ok(Color { red, green, blue }),
+            _ => Err(IntoColorError::IntConversion),
+        }
+    }
+```
+
+This actually runs fine and passes the tests…
+
+> Run the tests and confirm that they pass.
+
+…even though any `Err()` values in `result` will have the "wrong" type,
+because they won't be `IntoColorError` values.
+
+In our `match` statement we never explicitly indicate what types we're
+expecting in the catch-all `_` class, so as long as that clause returns
+the correct error type (`IntoColorError::IntConversion`) then everything
+be fine.
+
+If/when the `try_map` method on arrays
+moves into the release version of Rust, we could use it to
+simplify this further and avoid the `match` clause altogether.
+
+## Wrap-up
+
+> Title slide with big -> small image in background
+
+Our refactored version still works (we're still green), but it's about
+half as long as the initial working version!
+
+> Have an image here with the original version on the left and the
+> refactored version on the right. Both will have really tiny font
+> sizes so they won't be readable, but we'll be able to see the
+> difference.
+
+Here our refactoring work has taken us from 49 lines of code down
+to 26 lines, which is pretty nifty. Note how valuable it was having
+solid tests to provide a safety net while we were doing the refactoring,
+so we knew we were in good shape at every stage of the process.
 
